@@ -1,7 +1,0 @@
-<div>
-    <h3>Hi {{ $users->username }},</h3> 
-    <p>Welcome to Spot On. You can change the password click on below link.</p>
-    <a href="{{ asset('api/resetPassword/'.$userID) }}">Reset Password Link.</a>
-    <p> Thank you! Spot On Team </p>
-</div>    
-   
