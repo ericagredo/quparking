@@ -1,0 +1,14 @@
+Server Amazon Web Services - User (justismendez@yahoo.com) Pass: (Trootech98)
+
+
+=>New database
+
+DB Instance Identifier : us-east-1
+Endpoint : us-east-1.csjmuuzdavhy.us-east-1.rds.amazonaws.com
+
+Database Name : spoton
+Master Username : parkit_db
+Master Password : 70e274b5a149df30145d505ce9004150
+
+
+

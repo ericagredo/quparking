@@ -1,0 +1,88 @@
+@import url(https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600,700,300italic,400italic,600italic);
+/*!
+ *   AdminLTE v2.3.8
+ *   Author: Almsaeed Studio
+ *	 Website: Almsaeed Studio <http://almsaeedstudio.com>
+ *   License: Open source - MIT
+ *           Please visit http://opensource.org/licenses/MIT for more information
+!*/
+/*
+ * Core: General Layout Style
+ * -------------------------
+ */
+.red{ color: red; }
+.sidebar-menu li a{white-space: normal !important;}
+.dataTables_filter { display: none !important; }
+.custom_hide { display: none; }
+.input-group-addon{background-color: #eceeef !important;color: #464a4c !important;}
+.Customdaymonthhour{
+    -moz-appearance: none !important;
+    background: #fff url("../img/select_arrow.jpg") no-repeat scroll 92% 9px !important;
+    border: 1px solid #ddd !important;
+    /* border-radius: 6px !important; */
+    font-size: 14px !important;
+    height: 31px !important;
+    padding: 2px 19px 2px 8px !important;
+    text-indent: 0.01px !important;
+    text-overflow: "" !important;
+    width: 98% !important;
+    height: 34PX !important;
+}
+
+/* The switch - the box around the slider */
+.switch {
+    display: inline-block;
+    height: 27px;
+    position: relative;
+    width: 55px;
+}
+
+/* Hide default HTML checkbox */
+.switch input {display:none;}
+
+/* The slider */
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  -webkit-transition: .4s;
+  transition: .4s;
+}
+
+.slider:before {
+    background-color: white;
+    bottom: 4px;
+    content: "";
+    height: 20px;
+    left: 4px;
+    position: absolute;
+    transition: all 0.4s ease 0s;
+    width: 20px;
+}
+
+input:checked + .slider {
+  background-color: #3C8DBC;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #3C8DBC;
+}
+
+input:checked + .slider:before {
+  -webkit-transform: translateX(26px);
+  -ms-transform: translateX(26px);
+  transform: translateX(26px);
+}
+
+/* Rounded sliders */
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+} 

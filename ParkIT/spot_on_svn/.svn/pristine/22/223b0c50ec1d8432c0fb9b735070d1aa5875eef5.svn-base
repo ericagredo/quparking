@@ -1,0 +1,780 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\File;
+use App\Http\Requests;
+use App\Http\Helper;
+use App\Models\Users;
+use App\Models\ParkingspotImages;
+use App\Models\ParkingSpot;
+use App\Models\Pricing;
+use App\Models\SurchargeAmount;
+use Mail;
+use DateTime;
+
+class ParkingSpotController extends Controller {
+    /*
+     * Request Parameter :  [Apikey, userID, address, postal_code, country_id, state_id, city_name, access_instruction, number_of_space_spot ,latitude, longitude, location, uploaded_images[0], uploaded_images[1], uploaded_images[2], uploaded_images[3], uploaded_images[4]]
+     * Method : POST
+     * Request Api Url : "/api/registerparkingspot"
+     * Request Controller & Method : ParkingSpotController/RegisterParkingSpot
+     * Success response : [ message : Parking Spot save SuccessFully.,  code : 200, data : Array of Parking Spot Details]
+     * Error response : 
+      1)[ message : Parking Spot does not save SuccessFully., code : 101]
+     * 2)[ message : Unauthorised Call. , code : 101]
+     */
+
+    public function registerParkingSpot(Request $request) {
+        //print_r($_POST);die;
+        /*$parking_spot_images_id = [];
+        if ($request->hasFile('uploaded_images')) {
+                $files = $request->file('uploaded_images');
+                $i = 0;
+                foreach ($files as $file) {
+                    if ($i <= 4) {
+                        //$last_inserted_id = $parking_spot_id;
+                        $filename = $file->getClientOriginalName();
+                        $extension = $file->getClientOriginalExtension();
+                        $rendom = rand();
+                        $picture = date('His').$rendom. $filename;
+                        $destinationPath = public_path('uploads/parkingspot_images');
+                        $file->move($destinationPath, $picture);
+                        
+                        $name = asset('uploads/parkingspot_images/' . $picture);
+
+                        array_push($parking_spot_images_id, $name);
+                    }
+                    $i++;
+                }
+            }
+        if (!empty($parking_spot_images_id)) {
+                $files = $request->file('uploaded_images');
+                return response()->json(['response' => $parking_spot_images_id]);
+        }  else {
+                return response()->json(['response' => "Image not found"]);
+        }
+        die;*/
+        $address = $request->address;
+        $postal_code = $request->postal_code;
+        $country_id = $request->country_id;
+        $state_id = $request->state_id;
+        $city_name = $request->city_name;
+        $description = $request->access_instruction;
+        $number_of_space_spot = $request->number_of_space_spot;
+        $latitude = $request->latitude;
+        $longitude = $request->longitude;
+        $location = $request->location;
+        $userID = $request->userID;
+
+        $Apikey = $request->Apikey;
+        if ($Apikey == APIKEY) {
+            $parking_spot_id = DB::table('parking_spot')->insertGetId([
+                'users_id' => $userID,
+                'address' => $address,
+                'postal_code' => $postal_code,
+                'country_id' => $country_id,
+                'state_id' => $state_id,
+                'city_name' => $city_name,
+                'description' => $description,
+                'latitude' => $latitude,
+                'longitude' => $longitude,
+                'location' => $location,
+                'number_of_space_spot' => $number_of_space_spot,
+                'renting_type' => 'Auto Rent',
+                'verification_status' => 'No',
+                'users_verification_status' => 'No',
+                'status' => 'Inactive',
+                'created_date' => Helper::get_curr_datetime(),
+                'created_by' => $userID
+            ]);
+
+            if ($request->hasFile('uploaded_images')) {
+                $files = $request->file('uploaded_images');
+                $i = 0;
+                foreach ($files as $file) {
+                    if ($i <= 4) {
+                        $last_inserted_id = $parking_spot_id;
+                        $filename = $file->getClientOriginalName();
+                        $extension = $file->getClientOriginalExtension();
+                        $rendom = rand();
+                        $picture = date('His'). $rendom . $filename;
+                        $destinationPath = public_path('uploads/parkingspot_images');
+                        $file->move($destinationPath, $picture);
+
+                        $parking_spot_images_id = DB::table('parking_spot_images')->insert(
+                                [
+                                    'parking_spot_id' => $last_inserted_id,
+                                    'uploaded_image' => $picture,
+                                    'created_date' => Helper::get_curr_datetime(),
+                                    'created_by' => $userID
+                                ]
+                        );
+                    }
+                    $i++;
+                }
+            }
+
+            if ($parking_spot_id) {
+                $Parking_spot_details = DB::table('parking_spot')->where('id', $parking_spot_id)->first();
+                /*                 * ************ fetch parking_spot images ************* */
+                $Parking_spot_images_details = DB::table('parking_spot_images')->where('parking_spot_id', $parking_spot_id)->get();
+                /*                 * ************ fetch parking_spot images ************* */
+                $Parking_spot_details->id = !empty($Parking_spot_details->id) ? (int) $Parking_spot_details->id : '';
+                $Parking_spot_details->users_id = !empty($Parking_spot_details->users_id) ? (int) $Parking_spot_details->users_id : '';
+                $Parking_spot_details->number_of_space_spot = !empty($Parking_spot_details->number_of_space_spot) ? (int) $Parking_spot_details->number_of_space_spot : '';
+                $Parking_spot_details->no_of_hours = !empty($Parking_spot_details->no_of_hours) ? (int) $Parking_spot_details->no_of_hours : '';
+                $Parking_spot_details->no_of_days = !empty($Parking_spot_details->no_of_days) ? (int) $Parking_spot_details->no_of_days : '';
+                $Parking_spot_details->no_of_months = !empty($Parking_spot_details->no_of_months) ? (int) $Parking_spot_details->no_of_months : '';
+
+                $Parking_spot_details->parking_spot_images = (count($Parking_spot_images_details) > 0) ? $Parking_spot_images_details : array();
+                
+                $is_image = FALSE;
+                if (count($Parking_spot_images_details) > 0) {
+                    $m = 0;
+                    foreach ($Parking_spot_images_details as $uploaded_image) {
+                        $Parking_spot_details->parking_spot_images[$m]->uploaded_image = !empty($uploaded_image->uploaded_image) ? asset('uploads/parkingspot_images/' . $uploaded_image->uploaded_image) : '';
+                        $m++;
+                    }
+                    $Parking_spot_details->is_image = TRUE;
+                }
+                $msg = 'Parking Spot save SuccessFully.';
+                $code = 200;
+                return response()->json(['message' => $msg, 'code' => $code, 'data' => $Parking_spot_details]);
+            } else {
+                $msg = 'Parking Spot does not save SuccessFully.';
+                $code = 101;
+                return response()->json(['message' => $msg, 'code' => $code]);
+            }
+        } else {
+            return response()->json(['message' => 'Unauthorised Call', 'code' => 101]);
+        }
+    }
+
+    /*
+     * Request Parameter : [Apikey, parking_spot_id, verification_code]
+     * Method : POST
+     * Request Api Url : "/api/changeverificationcode"
+     * Request Controller & Method : ParkingSpotController/changeverificationcode
+     * Success response : [ message : Parking Spot verification status change SuccessFully.,  code : 200]
+     * Error response : 
+      1)[ message : Parking Spot verification status does not save SuccessFully., code : 101]
+     * 2)[ message : Unauthorised Call. , code : 101]
+     */
+
+    public function changeverificationcode(Request $request) {
+        $id = $request->parking_spot_id;
+        $verification_code = $request->verification_code;
+        $Apikey = $request->Apikey;
+        if ($Apikey == APIKEY) {
+            $Update_status = DB::update('update parking_spot set users_verification_status = "Yes",verification_code = ""  Where id =' . $id . ' And verification_status = "Yes" And verification_code = "' . $verification_code . '"');
+            if ($Update_status) {
+                $msg = 'Parking Spot verification status change SuccessFully.';
+                $code = 200;
+                return response()->json(['message' => $msg, 'code' => $code]);
+            } else {
+                $msg = 'Parking Spot verification status does not save SuccessFully.';
+                return response()->json(['message' => $msg, 'code' => 101]);
+            }
+        } else {
+            return response()->json(['message' => 'Unauthorised Call', 'code' => 101]);
+        }
+    }
+
+    /*
+     * Request Parameter :  [Apikey, userID]
+     * Method : POST
+     * Request Api Url : "/api/parkingspotlist"
+     * Request Controller & Method : ParkingSpotController/parkingSpotList
+     * Success response : [ message : Array Of Parking Spot Details Using UserID.,  code : 200]
+     * Error response : 
+      1)[ message : Parking spot does not available., code : 101]
+     * 2)[ message : Unauthorised Call. , code : 101]
+     */
+
+    public function parkingSpotList(Request $request) {
+        $userID = $request->userID;
+        $page_limit = $request->page_limit;
+        $page_offset = $request->page_offset;
+
+        if ($page_offset) {
+            $page_offset1 = $page_offset + 1;
+            $start = ($page_offset1 - 1) * $page_limit;
+        } else {
+            $start = 0;
+        }
+        $Apikey = $request->Apikey;
+        if ($Apikey == APIKEY) {
+            $Parking_spot_details = DB::table('parking_spot')
+                                    ->select('parking_spot.*')
+                                    ->where('parking_spot.users_id', $userID)
+                                    ->where('parking_spot.status', 'Active')
+                                    ->where('parking_spot.verification_status', 'Yes')
+                                    ->offset($start)
+                                    ->limit($page_limit)
+                                    ->get();
+                
+            /*echo '<pre>';
+            print_r($Parking_spot_details);
+            exit;*/
+            if (count($Parking_spot_details) > 0) {
+                foreach ($Parking_spot_details as $key => $spot) {
+                    $spot->id = !empty($spot->id) ? (int) $spot->id : '';
+                    $spot->users_id = !empty($spot->users_id) ? (int) $spot->users_id : '';
+                    $spot->number_of_space_spot = !empty($spot->number_of_space_spot) ? (int) $spot->number_of_space_spot : '';
+                    $spot->no_of_hours = !empty($spot->no_of_hours) ? (int) $spot->no_of_hours : '';
+                    $spot->no_of_days = !empty($spot->no_of_days) ? (int) $spot->no_of_days : '';
+                    $spot->no_of_months = !empty($spot->no_of_months) ? (int) $spot->no_of_months : '';
+                    
+                    $spot->country_name = '';
+                    $spot->state_name = '';
+                    if(!empty($spot->country_id) && $spot->country_id != 0 && !empty($spot->state_id) && $spot->state_id != 0){
+                        $parking_country_state = "SELECT
+                                                c.country_name,
+                                                s.state_name
+                                                FROM country as c
+                                                join state as s on s.id = $spot->state_id
+                                                where c.id = $spot->country_id";
+
+                        $data = DB::Select($parking_country_state);
+                        
+                      if(isset($data) && !empty($data)){
+                            $spot->country_name = $data[0]->country_name;
+                            $spot->state_name = $data[0]->state_name;
+                      }
+                    }
+
+                    // ====== Store Images Code ===== //
+                    $SpotsImagesList = ParkingspotImages::Where('parking_spot_id', $spot->id)->get();
+                    if (count($SpotsImagesList) > 0) {
+                        $Parking_spot_details[$key]->parking_spot_images = $SpotsImagesList;
+                        foreach ($SpotsImagesList as $sub_key => $spot_images) {
+                            $Parking_spot_details[$key]->parking_spot_images[$sub_key]->uploaded_image = !empty($spot_images->uploaded_image) ? asset('uploads/parkingspot_images/' . $spot_images->uploaded_image) : '';
+                        }
+                    } else {
+                        $Parking_spot_details[$key]->parking_spot_images = array();
+                    }
+                    // ====== Store Images Code ===== //
+                }
+
+                $msg = 'success';
+                $code = 200;
+                return response()->json(['message' => $msg, 'code' => $code, 'ParkingSpotList' => $Parking_spot_details]);
+            } else {
+                $msg = 'Parking spot does not available.';
+                $code = 101;
+                return response()->json(['message' => $msg, 'code' => $code]);
+            }
+        } else {
+            return response()->json(['message' => 'Unauthorised Call', 'code' => 101]);
+        }
+    }
+
+    /*
+     * Request Parameter :  [Apikey, parking_spot_id]
+     * Method : POST
+     * Request Api Url : "/api/fetchparkingspotdetails"
+     * Request Controller & Method : ParkingSpotController/fetchParkingSpotDetails
+     * Success response : [ message : Array Of Parking Spot Details Using Parking spot id.,  code : 200]
+     * Error response : 
+      1)[ message : Parking spot does not available., code : 101]
+     * 2)[ message : Unauthorised Call. , code : 101]
+     */
+
+    public function fetchParkingSpotDetails(Request $request) {
+        $parking_spot_id = $request->parking_spot_id;
+        $Apikey = $request->Apikey;
+        if ($Apikey == APIKEY) {
+            $GetParkingspotDetails = DB::table('parking_spot')
+                                    ->select('parking_spot.*')
+                                    ->where('parking_spot.id', $parking_spot_id)
+                                    ->where('parking_spot.status', 'Active')
+                                    ->where('parking_spot.verification_status', 'Yes')
+                    
+                                    ->first();
+                   
+                                    
+            if (count($GetParkingspotDetails) > 0) {
+                // ====== Store Images Code ===== //
+                $SpotsImagesList1 = ParkingspotImages::Where('parking_spot_id', $GetParkingspotDetails->id)->get();
+                $GetParkingspotDetails->parking_spot_images = array();
+                if (count($SpotsImagesList1) > 0) {
+                    $GetParkingspotDetails->parking_spot_images = $SpotsImagesList1;
+                    foreach ($SpotsImagesList1 as $k => $images) {
+                        $GetParkingspotDetails->parking_spot_images[$k]->id = !empty($images->id) ? (int) $images->id : '';
+                        $GetParkingspotDetails->parking_spot_images[$k]->parking_spot_id = !empty($images->parking_spot_id) ? (int) $images->parking_spot_id : '';
+                        $GetParkingspotDetails->parking_spot_images[$k]->uploaded_image = !empty($images->uploaded_image) ? asset('uploads/parkingspot_images/' . $images->uploaded_image) : '';
+                    }
+                }
+                // ====== Store Images Code ===== //
+                $GetParkingspotDetails->id = !empty($GetParkingspotDetails->id) ? (int) $GetParkingspotDetails->id : '';
+                $GetParkingspotDetails->users_id = !empty($GetParkingspotDetails->users_id) ? (int) $GetParkingspotDetails->users_id : '';
+                $GetParkingspotDetails->number_of_space_spot = !empty($GetParkingspotDetails->number_of_space_spot) ? (int) $GetParkingspotDetails->number_of_space_spot : '';
+                $GetParkingspotDetails->no_of_hours = !empty($GetParkingspotDetails->no_of_hours) ? (int) $GetParkingspotDetails->no_of_hours : 0;
+                $GetParkingspotDetails->no_of_days = !empty($GetParkingspotDetails->no_of_days) ? (int) $GetParkingspotDetails->no_of_days : 0;
+                $GetParkingspotDetails->no_of_months = !empty($GetParkingspotDetails->no_of_months) ? (int) $GetParkingspotDetails->no_of_months : 0;
+                
+                $GetParkingspotDetails->country_name = '';
+                $GetParkingspotDetails->state_name = '';
+                if(!empty($GetParkingspotDetails->country_id) && $GetParkingspotDetails->country_id != 0 && 
+                        !empty($GetParkingspotDetails->state_id) && $GetParkingspotDetails->state_id != 0){
+                    $parking_country_state = "SELECT
+                                            c.country_name,
+                                            s.state_name
+                                            FROM country as c
+                                            join state as s on s.id = $GetParkingspotDetails->state_id
+                                            where c.id = $GetParkingspotDetails->country_id";
+
+                    $data = DB::Select($parking_country_state);
+
+                  if(isset($data) && !empty($data)){
+                        $GetParkingspotDetails->country_name = $data[0]->country_name;
+                        $GetParkingspotDetails->state_name = $data[0]->state_name;
+                  }
+                }
+                //---------------------- Start : Send admin pricing in array --------------//
+                $pricing_array = array();
+                $pricing_array = Pricing::select('id', 'no_of_hours', 'hourly_price', 'no_of_days', 'daily_price', 'no_of_month', 'monthly_price', 'monthly_price')->Where('status', 'Active')->first();
+                //---------------------- End : Send admin pricing in array --------------//
+                $SurchargeSettings = array();
+                $SurchargeSettings = SurchargeAmount::select('amount_before_half_min', 'amount_after_half_min', 'amount_per_hour')->get(); 
+                
+                $msg = 'success';
+                $code = 200;
+                return response()->json(['message' => $msg, 'code' => $code, 'ParkingSpotList' => $GetParkingspotDetails, 'Pricing' => $pricing_array, 'SurchargeAmount' => $SurchargeSettings]);
+            } else {
+                $msg = 'Parking spot does not available.';
+                $code = 101;
+                return response()->json(['message' => $msg, 'code' => $code]);
+            }
+        } else {
+            return response()->json(['message' => 'Unauthorised Call', 'code' => 101]);
+        }
+    }
+
+    /*
+     * Request Parameter :  [Apikey, parking_spot_id]
+     * Method : POST
+     * Request Api Url : "/api/deleteparkingspot"
+     * Request Controller & Method : ParkingSpotController/deleteParkingSpot
+     * Success response : [ message : Parking spot deleted successfully.,  code : 200]
+     * Error response : 
+      1)[ message : Parking spot not deleted successfully., code : 101]
+     * 2)[ message : Unauthorised Call. , code : 101]
+     */
+
+    public function deleteParkingSpot(Request $request) {
+        $parking_spot_id = $request->parking_spot_id;
+        $Apikey = $request->Apikey;
+        if ($Apikey == APIKEY) {
+            $fetchMuiltiimagedata = DB::select("select * from parking_spot_images Where parking_spot_id In($parking_spot_id)");
+
+            foreach ($fetchMuiltiimagedata as $gallery) {
+                $removegalleryimage = $gallery->uploaded_image;
+                unlink(public_path('uploads/parkingspot_images/' . $removegalleryimage));
+            }
+
+            $del_parking_spot_image = DB::delete('DELETE FROM `parking_spot_images` WHERE parking_spot_id IN (' . $parking_spot_id . ')');
+            $del_parking_spot = DB::delete('DELETE FROM `parking_spot` WHERE id IN (' . $parking_spot_id . ')');
+
+            if ($del_parking_spot) {
+                $msg = 'Parking spot deleted successfully.';
+                $code = 200;
+                return response()->json(['message' => $msg, 'code' => $code]);
+            } else {
+                $msg = 'Parking spot not deleted successfully.';
+                $code = 101;
+                return response()->json(['message' => $msg, 'code' => $code]);
+            }
+        } else {
+            return response()->json(['message' => 'Unauthorised Call', 'code' => 101]);
+        }
+    }
+
+    /*
+    * Request Parameter :  [Apikey, image_id]
+    * Method : POST
+    * Request Api Url : "/api/deleteparkingspotimage"
+    * Request Controller & Method : ParkingSpotController/deleteparkingspotimage
+    * Success response : [ message : Parking spot image deleted successfully.,  code : 200]
+    * Error response :
+     1)[ message : Parking spot image not deleted successfully., code : 101]
+    * 2)[ message : Unauthorised Call. , code : 101]
+    */
+
+    public function deleteparkingspotimage(Request $request) {
+
+        $image_id = $request->image_id;
+        $Apikey = $request->Apikey;
+        if ($Apikey == APIKEY) {
+            $fetchMuiltiimagedata = DB::select(" select * from parking_spot_images 
+                                                Where id = $image_id ");
+
+            foreach ($fetchMuiltiimagedata as $gallery) {
+                $removegalleryimage = $gallery->uploaded_image;
+                unlink(public_path('uploads/parkingspot_images/' . $removegalleryimage));
+            }
+
+            $del_parking_spot_image = DB::delete(" DELETE FROM `parking_spot_images` 
+                                                  WHERE id = $image_id ");
+
+            if ($del_parking_spot_image) {
+                $msg = 'Parking spot image deleted successfully.';
+                $code = 200;
+                return response()->json(['message' => $msg, 'code' => $code]);
+            } else {
+                $msg = 'Parking spot image not deleted successfully.';
+                $code = 101;
+                return response()->json(['message' => $msg, 'code' => $code]);
+            }
+        } else {
+            return response()->json(['message' => 'Unauthorised Call', 'code' => 101]);
+        }
+    }
+
+    /*
+     * Request Parameter : [Apikey, parking_spot_id]
+     * Method : POST
+     * Request Api Url : "/api/editparkingspot"
+     * Request Controller & Method : ParkingSpotController/updateParkingSpot
+     * Success response : [ message : Array Of Parking Spot Details Using Parking spot id.,  code : 200]
+     * Error response : 
+      1)[ message : Parking spot does not available., code : 101]
+     * 2)[ message : Unauthorised Call. , code : 101]
+     */
+
+    public function updateParkingSpot(Request $request) {
+        $parking_spot_id = $request->parking_spot_id;
+        $instant_rent_status = $request->instant_rent_status;
+        $renting_type = $request->renting_type;
+        $userID = $request->userID;
+
+        $number_of_space_spot = !empty($request->number_of_space_spot) ? $request->number_of_space_spot : '0';
+        $description = !empty($request->description) ? $request->description : '';
+
+        $sche_start_date = !empty($request->sche_start_date) ? date('Y-m-d H:i:s', strtotime($request->sche_start_date)) : '';
+        $sche_start_time = !empty($request->sche_start_time) ? date('H:i:s', strtotime($request->sche_start_time)) : '';
+
+        $no_of_hours = !empty($request->no_of_hours) ? $request->no_of_hours : 0;
+        $no_of_days = !empty($request->no_of_days) ? $request->no_of_days : 0;
+        $no_of_months = !empty($request->no_of_months) ? $request->no_of_months : 0;
+        $mon_start_time = !empty($request->mon_start_time) ? date('H:i:s', strtotime($request->mon_start_time)) : '';
+        $mon_end_time = !empty($request->mon_end_time) ? date('H:i:s', strtotime($request->mon_end_time)) : '';
+        $tue_start_time = !empty($request->tue_start_time) ? date('H:i:s', strtotime($request->tue_start_time)) : '';
+        $tue_end_time = !empty($request->tue_end_time) ? date('H:i:s', strtotime($request->tue_end_time)) : '';
+        $wed_start_time = !empty($request->wed_start_time) ? date('H:i:s', strtotime($request->wed_start_time)) : '';
+        $wed_end_time = !empty($request->wed_end_time) ? date('H:i:s', strtotime($request->wed_end_time)) : '';
+        $thur_start_time = !empty($request->thur_start_time) ? date('H:i:s', strtotime($request->thur_start_time)) : '';
+        $thur_end_time = !empty($request->thur_end_time) ? date('H:i:s', strtotime($request->thur_end_time)) : '';
+        $fri_start_time = !empty($request->fri_start_time) ? date('H:i:s', strtotime($request->fri_start_time)) : '';
+        $fri_end_time = !empty($request->fri_end_time) ? date('H:i:s', strtotime($request->fri_end_time)) : '';
+        $sat_start_time = !empty($request->sat_start_time) ? date('H:i:s', strtotime($request->sat_start_time)) : '';
+        $sat_end_time = !empty($request->sat_end_time) ? date('H:i:s', strtotime($request->sat_end_time)) : '';
+        $sun_start_time = !empty($request->sun_start_time) ? date('H:i:s', strtotime($request->sun_start_time)) : '';
+        $sun_end_time = !empty($request->sun_end_time) ? date('H:i:s', strtotime($request->sun_end_time)) : '';
+
+        if ($renting_type == 'Schedule Rent') {
+            $no_of_hours = $request->no_of_hours;
+            $no_of_days = $request->no_of_days;
+            $no_of_months = $request->no_of_months;
+        } else if ($renting_type == 'Auto Rent') {
+            $mon_start_time = $request->mon_start_time;
+            $mon_end_time = $request->mon_end_time;
+            $tue_start_time = $request->tue_start_time;
+            $tue_end_time = $request->tue_end_time;
+            $wed_start_time = $request->wed_start_time;
+            $wed_end_time = $request->wed_end_time;
+            $thur_start_time = $request->thur_start_time;
+            $thur_end_time = $request->thur_end_time;
+            $fri_start_time = $request->fri_start_time;
+            $fri_end_time = $request->fri_end_time;
+            $sat_start_time = $request->sat_start_time;
+            $sat_end_time = $request->sat_end_time;
+            $sun_start_time = $request->sun_start_time;
+            $sun_end_time = $request->sun_end_time;
+        }
+
+        $Apikey = $request->Apikey;
+        if ($Apikey == APIKEY) {
+            $parking_spot = DB::table('parking_spot')->where('id', $parking_spot_id)->update(
+                    [
+                        'instant_rent' => $instant_rent_status,
+                        'renting_type' => $renting_type,
+                        'number_of_space_spot' => $number_of_space_spot,
+                        'description' => $description,
+                        'sche_start_date' => $sche_start_date,
+                        'sche_start_time' => $sche_start_time,
+                        'no_of_hours' => $no_of_hours,
+                        'no_of_days' => $no_of_days,
+                        'no_of_months' => $no_of_months,
+                        'mon_start_time' => $mon_start_time,
+                        'mon_end_time' => $mon_end_time,
+                        'tue_start_time' => $tue_start_time,
+                        'tue_end_time' => $tue_end_time,
+                        'wed_start_time' => $wed_start_time,
+                        'wed_end_time' => $wed_end_time,
+                        'thur_start_time' => $thur_start_time,
+                        'thur_end_time' => $thur_end_time,
+                        'fri_start_time' => $fri_start_time,
+                        'fri_end_time' => $fri_end_time,
+                        'sat_start_time' => $sat_start_time,
+                        'sat_end_time' => $sat_end_time,
+                        'sun_start_time' => $sun_start_time,
+                        'sun_end_time' => $sun_end_time,
+                        'updated_date' => Helper::get_curr_datetime()
+                    ]
+            );
+
+            if ($request->hasFile('uploaded_images')) {
+                $files = $request->file('uploaded_images');
+                $i = 0;
+                foreach ($files as $file) {
+                    if ($i <= 4) {
+                        $last_inserted_id = $parking_spot_id;
+                        $filename = $file->getClientOriginalName();
+                        $extension = $file->getClientOriginalExtension();
+                        $rendom = rand();
+                        $picture = date('His'). $rendom . $filename;
+                        $destinationPath = public_path('uploads/parkingspot_images');
+                        $file->move($destinationPath, $picture);
+
+                        $parking_spot_images_id = DB::table('parking_spot_images')->insert(
+                            [
+                                'parking_spot_id' => $last_inserted_id,
+                                'uploaded_image' => $picture,
+                                'created_date' => Helper::get_curr_datetime(),
+                                'created_by' => $userID
+                            ]
+                        );
+                    }
+                    $i++;
+                }
+            }
+
+            if ($parking_spot) {
+                return response()->json(['message' => 'Parking spot updated successfully.', 'code' => 200]);
+            } else {
+                return response()->json(['message' => 'Parking spot updated fail.', 'code' => 101]);
+            }
+        } else {
+            return response()->json(['message' => 'Unauthorised Call', 'code' => 101]);
+        }
+    }
+
+    /*
+     * Request Parameter :  [Apikey, parking_spot_id]
+     * Method : POST
+     * Request Api Url : "/api/searchableparkingspotlist"
+     * Request Controller & Method : ParkingSpotController/searchableparkingSpotList
+     * Success response : [ message : Array Of Parking Spot Details Using Parking spot id.,  code : 200]
+     * Error response : 
+      1)[ message : Parking spot does not available., code : 101]
+     * 2)[ message : Unauthorised Call. , code : 101]
+     */
+
+    public function searchableparkingSpotList(Request $request) {
+        $Apikey = $request->Apikey;
+        if ($Apikey == APIKEY) {
+            $latitude = $request->latitude;
+            $longitude = $request->longitude;
+            $date = $request->date;
+            $time = $request->time;
+            $month = $request->month;
+            $day = $request->day;
+            $hour = $request->hour;
+            $timezone = $request->timezone;
+            $userID = $request->userID;
+
+            date_default_timezone_set($timezone);
+            
+            $general_settings = "SELECT *"
+                    . " FROM general_settings";
+            $general_settings = DB::Select($general_settings);
+            $distance_of_miles = 2 ;
+            if(isset($general_settings) && !empty($general_settings)){
+                $distance_of_miles = $general_settings[0]->distance_of_miles;
+            }     
+            // $latitude = '23.022505';
+            // $longitude = '72.57136209999999';
+            $where = '';
+            $booking_date = date('Y-m-d', strtotime($date));
+
+            if (!empty($time)) {
+                $booking_time = date('H:i:s', strtotime($time));
+                $where .= " AND b.booking_time = '" . $booking_time . "'";
+            }
+
+            if (!empty($month)) {
+                $where .= " AND b.booking_month = " . $month;
+            } else if (!empty($day)) {
+                $where .= " AND b.booking_days = " . $day;
+            } else if (!empty($hour)) {
+                $where .= " AND b.booking_hours =" . $hour;
+            }
+            $current_datetime = Helper::get_curr_datetime();
+            //echo $current_datetime; exit;
+            $parking_Array = array();
+            $parking_spotSql = "SELECT s.*,
+                        69.0 * DEGREES( ACOS( COS( RADIANS( s.latitude ) ) * COS( RADIANS( '" . $latitude . "' ) ) * COS( RADIANS( s.longitude - '" . $longitude . "' ) ) + SIN( RADIANS( s.latitude ) ) * SIN( RADIANS( '" . $latitude . "' ) ) ) ) AS distance_in_miles "
+                    . " FROM parking_spot as s"
+                    . " Having distance_in_miles < $distance_of_miles 
+                        AND s.verification_status='Yes' 
+                        AND s.users_id != $userID
+                        AND CASE renting_type 
+                             WHEN 'Schedule Renting' 
+                             THEN (TIMESTAMP(sche_start_date) <= TIMESTAMP('$current_datetime') )
+                             ELSE 1=1
+                        END
+                        AND CASE renting_type 
+                             WHEN 'Auto Rent' 
+                             THEN 
+                                CASE DAYNAME('$current_datetime')
+                                     WHEN 'Monday'
+                                        THEN (mon_start_time <= date('H:i:s')) AND (mon_end_time >= date('H:i:s'))
+                                     WHEN 'Tuesday'
+                                        THEN (tue_start_time <= date('H:i:s')) AND (tue_end_time >= date('H:i:s'))
+                                     WHEN 'Wednesday'
+                                        THEN (wed_start_time <= date('H:i:s')) AND (wed_end_time >= date('H:i:s'))
+                                     WHEN 'Thursday'
+                                        THEN (thur_start_time <= date('H:i:s')) AND (thur_end_time >= date('H:i:s'))
+                                     WHEN 'Friday'
+                                        THEN (fri_start_time <= date('H:i:s')) AND (fri_end_time >= date('H:i:s'))
+                                     WHEN 'Saturday'
+                                        THEN (sat_start_time <= date('H:i:s')) AND (sat_end_time >= date('H:i:s'))
+                                     WHEN 'Sunday'
+                                        THEN (sun_start_time <= date('H:i:s')) AND (sun_start_time >= date('H:i:s'))              
+                                END     
+                             ELSE 1=1
+                        END
+                      ";
+            $parking_Array = DB::Select($parking_spotSql);
+
+
+
+            /*$parking_spotSql = "SELECT 
+                s.*,
+                69.0 * DEGREES( ACOS( COS( RADIANS( s.latitude ) ) * COS( RADIANS( '" . $latitude . "' ) ) * COS( RADIANS( s.longitude - '" . $longitude . "' ) ) + SIN( RADIANS( s.latitude ) ) * SIN( RADIANS( '" . $latitude . "' ) ) ) ) AS distance_in_miles
+                FROM parking_spot as s
+                Having distance_in_miles < 2 
+                AND s.status='Active' "
+                . $where;*/
+            $new_array_of_spot = [];
+            if(count($parking_Array) > 0){
+
+                foreach ($parking_Array as $key =>$action){
+                    if($action->no_of_months >0){
+                        $time = strtotime($action->sche_start_date);
+                        $temp_month = "+".$action->no_of_months." month";
+                        $final_end_date = date("Y-m-d", strtotime($temp_month, $time));
+                    }
+                    if($action->no_of_days >0){
+                        if(isset($final_end_date) && !empty($final_end_date)){
+                            $time = strtotime($final_end_date);
+                            $temp_day = "+".$action->no_of_days." day";
+                            $final_end_date = date("Y-m-d", strtotime($temp_day, $time));
+                        }else{
+                            $time = strtotime($action->sche_start_date);
+                            $temp_day = "+".$action->no_of_days." day";
+                            $final_end_date = date("Y-m-d", strtotime($temp_day, $time));
+                        }
+                    }
+                    /*echo date("Y-m-d",strtotime($action->sche_start_date)).'<br>';*/
+                    $time2 = 0;
+                    if($action->no_of_hours >0) {
+                        $time2 = date("H:i:s", strtotime($action->sche_start_time));
+                        $temp_hours = '+' . $action->no_of_hours . ' hour';
+                        $time2 = date('H:i:s', strtotime($time2 . $temp_hours));
+                    }
+
+                    if(isset($final_end_date) && (strtotime($current_datetime) <= strtotime($final_end_date)) ){
+                        if((date("Y-m-d",strtotime($action->sche_start_date)) == date("Y-m-d",time())) && ($action->sche_start_time <= date("H:i:s", time()))  && (date("H:i:s", time()) >= $time2) ){
+                            unset($parking_Array[$key]);
+
+                        }
+                    }else{
+                        if((date("Y-m-d",strtotime($action->sche_start_date)) == date("Y-m-d",time())) && ($action->sche_start_time <= date("H:i:s", time()))  && (date("H:i:s", time()) <= $time2) ){
+
+                        }else{
+                            unset($parking_Array[$key]);
+                        }
+                    }
+
+                    /*$date = new DateTime($month_end);
+                    $date->modify('+3 day');
+                    $day_end = $date->format('Y-m-d');
+                    //if($action->no_of_months > 0 )*/
+                }
+
+                foreach ($parking_Array as $key =>$action){
+                    $action->discount_amount =  $general_settings[0]->discount_amount;
+                    $action->penalty_amount =  $general_settings[0]->penalty_amount;
+                    
+                    $parking_booking = "SELECT b.*"
+                    . " FROM booking as b"
+                    . " WHERE b.parking_spot_id = $action->id "
+                    . "AND DATE_FORMAT(b.booking_date, '%Y-%m-%d') = DATE_FORMAT('$booking_date', '%Y-%m-%d') " 
+                    . $where;
+                    $booking = DB::Select($parking_booking);    
+                    if(count($booking) > 0){
+                        unset($parking_Array[$key]);
+                    }else{
+                        // ====== Store Images Code ===== //
+                        $SpotsImagesList1 = ParkingspotImages::Where('parking_spot_id', $action->id)->get();
+                        $action->parking_spot_images = array();
+                        $is_image = FALSE;
+                        if (count($SpotsImagesList1) > 0) {
+                            $action->parking_spot_images = $SpotsImagesList1;
+                            foreach ($SpotsImagesList1 as $k => $images) {
+                                $action->parking_spot_images[$k]->id = !empty($images->id) ? (int) $images->id : '';
+                                $action->parking_spot_images[$k]->parking_spot_id = !empty($images->parking_spot_id) ? (int) $images->parking_spot_id : '';
+                                $action->parking_spot_images[$k]->uploaded_image = !empty($images->uploaded_image) ? asset('uploads/parkingspot_images/' . $images->uploaded_image) : '';
+                            }
+                            $is_image = TRUE;
+                        }
+                        $action->is_image = $is_image;
+                        
+                        $review_booking = "SELECT AVG(rating) as rating"
+                            . " FROM booking"
+                            . " LEFT JOIN review ON review.users_id = booking.users_id"
+                            . " WHERE booking.parking_spot_id = $action->id"; 
+                            
+                        $review = DB::Select($review_booking);
+                        $action->reting = 0;
+                        if(count($review) > 0 && !empty($review[0]->rating)){
+                            $action->reting = $review[0]->rating;
+                        }
+
+                        //---------------------- Start : Send admin pricing in array --------------//
+                        $pricing_array = Pricing::select('id', 'no_of_hours', 'hourly_price', 'no_of_days', 'daily_price', 'no_of_month', 'monthly_price', 'monthly_price')->Where('status', 'Active')->first();
+                        if(count($pricing_array) > 0){
+                            $pricing_array = $pricing_array;
+                        }else{
+                            $pricing_array = (object) array();
+                        }
+                        $action->Pricing = $pricing_array;
+                        //---------------------- End : Send admin pricing in array --------------//
+                        array_push($new_array_of_spot,$action);
+                    }
+                    
+                }
+            }
+          
+            /*echo '<pre>';
+            print_r($parking_Array); exit;*/
+
+            if(count($new_array_of_spot) > 0){
+
+                return response()->json(['message' => 'Success', 'code' => 200, 'data' => $new_array_of_spot]);
+            }else{
+                return response()->json(['message' => 'Parking spot does not available.', 'code' => 101]);
+            }
+        } else {
+            return response()->json(['message' => 'Unauthorised Call', 'code' => 101]);
+        }
+    }
+}

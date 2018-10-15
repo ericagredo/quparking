@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Park It Invoice</title>
+
+    <!-- Fonts -->
+
+
+    <!-- Styles -->
+    <style>
+        body {
+            font-family: 'Open Sans', sans-serif;
+        }
+
+        table {
+            border: 1px solid #ccc;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            border-collapse: collapse;
+            border-spacing: 0;
+        }
+
+        table tr {
+            border: 1px dashed #ddd;
+            padding: 5px;
+        }
+
+        table th,
+        table td {
+            padding: 10px;
+            text-align: left;
+            padding-left: 15px;
+        }
+
+        table th {
+            text-transform: uppercase;
+            font-size: 14px;
+            letter-spacing: 1px;
+        }
+
+        .title {
+            font-size: 24px;
+            width: 100%;
+            text-align: center
+        }
+
+        .container {
+            width: 500px;
+            margin: 70px auto;
+        }
+
+        .right {
+            text-align: right
+        }
+        .logo {
+            width: 100%;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!--div class="logo"><img src="./logo.png"></div-->
+    <h1 class="title">Park It Invoice</h1>
+    <table>
+        <thead>
+
+        </thead>
+        <tbody>
+        <tr>
+            <td>Location :</td>
+            <td class="right">Ahmedabad</td>
+        </tr>
+        <tr>
+            <td>City :</td>
+            <td class="right">Ahmedabad</td>
+        </tr>
+        <tr>
+            <td>Country :</td>
+            <td class="right">India</td>
+        </tr>
+        <tr>
+            <td>Postal Code :</td>
+            <td class="right">12323654</td>
+        </tr>
+        <tr>
+            <td>Transaction Id :</td>
+            <td class="right">3ewx4wb8</td>
+        </tr>
+        <tr>
+            <td>Booking Id :</td>
+            <td class="right">WJONKBE56</td>
+        </tr>
+        <tr>
+            <td>Booking Date :</td>
+            <td class="right">0000-00-00 00:00:00</td>
+        </tr>
+        <tr>
+            <td>Amount :</td>
+            <td class="right">150</td>
+        </tr>
+        <tr>
+            <td>Discount Amount :</td>
+            <td class="right">0</td>
+        </tr>
+        <tr>
+            <td>Total Paid Amount :</td>
+            <td class="right">150</td>
+        </tr>
+
+        </tbody>
+    </table>
+
+</div>
+
+<div class="flex-center position-ref full-height">
+
+
+    <div class="content">
+        <div class="title m-b-md">
+            Invoice
+        </div>
+        <br>
+        <div class="row">
+            <div class="col-md-12">
+                Location : {{$data->spot_location}}<br>
+                City : {{$data->city_name}}<br>
+                Country : {{$data->country_name}}<br>
+                Postal Code : {{$data->postal_code}}<br>
+            </div>
+            <div class="col-md-12">
+                Transaction Id : {{$data->transaction_id}}<br>
+                Booking Id : {{$data->generated_booking_id}}<br>
+                Booking Date : {{$data->booking_start_date_time}}<br>
+            </div>
+            <div class="col-md-12 text-left">
+                Amount : {{$data->paid_amount + $data->additional_credited_amount}}<br>
+                Discount Amount : {{$data->additional_credited_amount}}<br>
+                Total Paid Amount : {{$data->paid_amount}}<br>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

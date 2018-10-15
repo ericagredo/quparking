@@ -1,0 +1,97 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use App\Http\Controllers\Controller;
+use App\Http\Requests;
+use App\Http\Helper;
+
+class UserNotificationController extends Controller {
+    
+    /*
+     * Request Parameter : [Apikey,userID]
+     * Method : POST
+     * Request Api Url : "/api/notificationlist"
+     * Request Controller & Method : UserNotificationController/NotificationList
+     * Success response : [ message : Success.,  code : 200, data: Array of Notification]
+     * Error response : 
+     * 1)[ message : Unauthorised Call. , code : 101]
+       2)[ message : Notification doesnot avilable. , code : 101]
+     */
+   
+    public function NotificationList(Request $request) {
+        $Apikey = $request->Apikey;
+        $userID = $request->userID;
+        
+        if ($Apikey == APIKEY) {
+            $sql="
+               SELECT 
+                    `notification`.id,
+                    `notification`.users_id,
+                    `notification`.push_notification_id,
+                    `notification`.notification_mode,
+                    `push_notification`.notification_title
+               FROM `notification`
+               LEFT JOIN `push_notification` ON `push_notification`.id = `notification`.push_notification_id
+               WHERE `notification`.users_id = $userID
+               ";
+           $Push_notification =  DB::select( DB::raw($sql) );
+           
+            //$Push_notification = DB::table('notification')->where('users_id', $userID)->get();
+           
+            if (count($Push_notification) > 0) {
+                $temp_array = [];
+                foreach ($Push_notification as $notification) {
+                    //$Push_notification->id = !empty($notification->id) ? (int) $notification->id : '';
+                    array_push($temp_array, $notification);
+                }
+                //echo '<pre>';
+               // print_r($temp_array); exit;
+                return response()->json(['message' => 'Success', 'code' => 200, 'data' => $Push_notification]);
+            } else {
+                return response()->json(['message' => 'Notification doesnot avilable', 'code' => 101]);
+            }
+        } else {
+            return response()->json(['message' => 'Unauthorised Call', 'code' => 101]);
+        }
+    }
+
+    /*
+     * Request Parameter : [Apikey, push_notification_id,userID, mode]
+     * Method : POST
+     * Request Api Url : "/api/changenotificationmode"
+     * Request Controller & Method : UserNotificationController/changeNotificationMode
+     * Success response : [ message : Notification mode change successfully.,  code : 200]
+     * Error response : 
+     * 1)[ message : Unauthorised Call. , code : 101]
+       2)[ message : Notification mode doesnot change successfully. , code : 101]
+     */
+    public function changeNotificationMode(Request $request) {
+        $Apikey = $request->Apikey;
+        $push_notification_id = $request->push_notification_id;
+        $userID = $request->userID;
+        $Mode = $request->mode;
+        //echo $Mode; exit;
+        if ($Apikey == APIKEY) {
+            $notification_update = DB::table('notification')
+                                        ->where('users_id', $userID)
+                                        ->where('push_notification_id', $push_notification_id)
+                ->update([
+                    'notification_mode' => $Mode,
+                    'updated_date' => Helper::get_curr_datetime()
+                ]);
+
+            if($notification_update){
+                return response()->json(['message' => 'Notification mode change successfully.', 'code' => 200]);
+            }
+            return response()->json(['message' => 'Notification mode doesnot change successfully.', 'code' => 101]);
+        } else {
+            return response()->json(['message' => 'Unauthorised Call', 'code' => 101]);
+        }
+    }
+
+}

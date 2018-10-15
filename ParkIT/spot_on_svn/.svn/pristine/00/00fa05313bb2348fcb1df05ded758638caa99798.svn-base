@@ -1,0 +1,56 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\File;
+use App\Http\Requests;
+use App\Http\Helper;
+use App\Models\Users;
+use App\Models\ParkingspotImages;
+use App\Models\ParkingSpot;
+use App\Models\Pricing;
+use App\Models\SurchargeAmount;
+use Mail;
+use DateTime;
+
+use App\Models\DeviceMaster;
+use Aws\Credentials\CredentialProvider;
+
+
+class BraintreeController extends Controller{
+
+    public function checkout(){
+
+        //$clientToken = Braintree_ClientToken::generate();
+        $clientToken = \Braintree_ClientToken::generate();
+        if(isset($clientToken) && !empty($clientToken)){
+            return $clientToken;
+        }else{
+            return '';
+        }
+    }
+
+    public function checkout_post(){
+        $nonceFromTheClient = $_POST["payment_method_nonce"];
+        $result = \Braintree_Transaction::sale([
+            'amount' => '10.00',
+            'paymentMethodNonce' => $nonceFromTheClient,
+            'options' => [
+                'submitForSettlement' => True
+            ]
+        ]);
+
+        if($result->success){
+            $transaction = $result->transaction;
+            return $transaction->status;
+        }else{
+            return $result->errors->deepAll();
+        }
+    }
+
+}

@@ -1,0 +1,7 @@
+<div>
+    <p>Hello <?php echo $EmailTemplate['Name']; ?></p>
+
+    <p>Description : <?php echo $EmailTemplate['Description']; ?></p>
+
+    <p>Thanks You, Park It Team!</p>
+</div>
